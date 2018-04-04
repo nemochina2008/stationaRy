@@ -301,7 +301,7 @@ stations <- dplyr::mutate_if(as.data.frame(stations), is.factor, as.character)
 
 # Perform left join to join corrected elevation with original station data,
 # this will include stations below/above -60/60
-isd_history <- 
+stations <- 
   dplyr::left_join(stations, corrected_elev) %>% 
   tibble::as_tibble()
 ```
@@ -309,7 +309,7 @@ isd_history <-
     ## Joining, by = c("USAF", "WBAN", "STN_NAME", "CTRY", "STATE", "CALL", "LAT", "LON", "ELEV_M", "BEGIN", "END", "STNID")
 
 ``` r
-str(isd_history)
+str(stations)
 ```
 
     ## Classes 'tbl_df', 'tbl' and 'data.frame':    28476 obs. of  13 variables:
@@ -331,25 +331,20 @@ Some stations occur in areas where DEM has no data, in this case, use
 original station elevation for these stations.
 
 ``` r
-isd_history <- dplyr::mutate(isd_history,
+stations <- dplyr::mutate(stations,
                                 ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
                                                 ELEV_M, ELEV_M_SRTM_90m))
 # round SRTM_90m_Buffer field to whole number in cases where station reported
 # data was used and rename column
-isd_history[, 13] <- round(isd_history[, 13], 0)
-
-# retain only distinct rows in case of duplicate data
-
-isd_history <- isd_history %>%
-  dplyr::distinct(isd_history)
+stations[, 13] <- round(stations[, 13], 0)
 ```
 
 # Figures
 
 ``` r
-ggplot(data = isd_history, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
-  geom_point(alpha = 0.4, size = 0.5) +
-  geom_abline(slope = 1, colour = "white")
+ggplot2::ggplot(data = stations, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
+  ggplot2::geom_point(alpha = 0.4, size = 0.5) +
+  ggplot2::geom_abline(slope = 1, colour = "white")
 ```
 
 ![GSOD Reported Elevation versus CGIAR-CSI SRTM Buffered
@@ -368,7 +363,7 @@ elevation values along with the cleaned “isd-history.csv” data.
 
 ``` r
 # write rda file to disk for use with package
-save(isd_history, file = "../inst/stations.rda",
+save(stations, file = "../inst/stations.rda",
      compress = "bzip2")
 ```
 

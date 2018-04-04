@@ -109,7 +109,6 @@ countries <- readr::read_table(
   col_types = "ccc",
   col_names = c("FIPS", "ID", "`COUNTRY NAME`"),
 )[-1, c(1, 3)]
-
 ```
 
 ## Reformat and clean station data file from NCEI
@@ -128,7 +127,6 @@ countries <- dplyr::left_join(countries, countrycode::codelist,
 
 # create xy object to check for geographic location agreement with reported
 xy <- dplyr::left_join(stations, countries, by = c("CTRY" = "FIPS"))
-
 ```
 
 ## Check data for inconsistencies
@@ -162,7 +160,8 @@ machine with minimal effort but does take some time to loop through all of the
 tiles.
 
 Data can be downloaded from the
-[CGIAR-CSI's](http://csi.cgiar.org/WhtIsCGIAR_CSI.asp) ftp server, [srtm.csi.cgiar.org](ftp://srtm.csi.cgiar.org), using an FTP client to
+[CGIAR-CSI's](http://csi.cgiar.org/WhtIsCGIAR_CSI.asp) ftp server,
+[srtm.csi.cgiar.org](ftp://srtm.csi.cgiar.org), using an FTP client to
 facilitate this next step.
 
 ```{r check station location, echo=TRUE, cache=FALSE}
@@ -235,48 +234,36 @@ Create the `corrected_elev` object and tidy up by converting any factors to
 character prior to performing a left-join with the `stations` object.
 
 ```{r join corrected_elev with station data}
-
 # convert any factors in stations object to character for left_join
 stations <- dplyr::mutate_if(as.data.frame(stations), is.factor, as.character)
 
 # Perform left join to join corrected elevation with original station data,
 # this will include stations below/above -60/60
-isd_history <- 
+stations <- 
   dplyr::left_join(stations, corrected_elev) %>% 
   tibble::as_tibble()
 
-str(isd_history)
-
+str(stations)
 ```
 
 Some stations occur in areas where DEM has no data, in this case, use original
 station elevation for these stations.
 
 ```{r fill-NA}
-isd_history <- dplyr::mutate(isd_history,
+stations <- dplyr::mutate(stations,
                                 ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
                                                 ELEV_M, ELEV_M_SRTM_90m))
 # round SRTM_90m_Buffer field to whole number in cases where station reported
 # data was used and rename column
-isd_history[, 13] <- round(isd_history[, 13], 0)
-
-# retain only distinct rows in case of duplicate data
-
-isd_history <- isd_history %>%
-  dplyr::distinct(isd_history)
-
+stations[, 13] <- round(stations[, 13], 0)
 ```
 
 # Figures
 
-```{r ggplot, echo=FALSE, message=FALSE}
-library(ggplot2)
-```
-
 ```{r Buffered SRTM 90m vs Reported Elevation, echo=TRUE, fig.cap="GSOD Reported Elevation versus CGIAR-CSI SRTM Buffered Elevation", warning=FALSE}
-ggplot(data = isd_history, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
-  geom_point(alpha = 0.4, size = 0.5) +
-  geom_abline(slope = 1, colour = "white")
+ggplot2::ggplot(data = stations, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
+  ggplot2::geom_point(alpha = 0.4, size = 0.5) +
+  ggplot2::geom_abline(slope = 1, colour = "white")
 ```
 
 Buffered versus non-buffered elevation values were previously checked and found
@@ -290,9 +277,8 @@ The final dataframe for distribution with the package includes the new elevation
 values along with the cleaned "isd-history.csv" data.
 
 ```{r cleanup and .rda file creation, message=FALSE, echo=TRUE, warning=FALSE, error=FALSE}
-
 # write rda file to disk for use with package
-save(isd_history, file = "../inst/stations.rda",
+save(stations, file = "../inst/stations.rda",
      compress = "bzip2")
 ```
 
