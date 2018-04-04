@@ -292,28 +292,8 @@ return(sub_stations)
 parallel::stopCluster(cl)
 ```
 
-Some stations occur in areas where DEM has no data, in this case, use
-original station elevation for these stations.
-
-``` r
-corrected_elev <- dplyr::mutate(corrected_elev,
-                                ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
-                                                ELEV_M, ELEV_M_SRTM_90m))
-# round SRTM_90m_Buffer field to whole number in cases where station reported
-# data was used and rename column
-corrected_elev[, 13] <- round(corrected_elev[, 13], 0)
-
-# retain only distinct rows in case of duplicate data
-
-corrected_elev <- corrected_elev %>%
-  dplyr::distinct(corrected_elev)
-```
-
-Tidy up the `corrected_elev` object by converting any factors to
-character prior to performing a left-join with the `stations` object and
-remove duplicate rows. For stations above/below 60/-60 latitude,
-`ELEV_M_SRTM_90m` will be `NA` as there is no SRTM data for these
-latitudes.
+Create the `corrected_elev` object and tidy up by converting any factors
+to character prior to performing a left-join with the `stations` object.
 
 ``` r
 # convert any factors in stations object to character for left_join
@@ -345,27 +325,24 @@ str(isd_history)
     ##  $ BEGIN          : num  19310101 19861120 19870117 19870116 19880320 ...
     ##  $ END            : num  20180401 20180401 20111020 19910806 20050228 ...
     ##  $ STNID          : chr  "010010-99999" "010014-99999" "010015-99999" "010016-99999" ...
-    ##  $ ELEV_M_SRTM_90m: num  NA 48 NA NA 48 NA NA NA NA NA ...
+    ##  $ ELEV_M_SRTM_90m: num  NA 47.7 NA NA NA ...
+
+Some stations occur in areas where DEM has no data, in this case, use
+original station elevation for these stations.
 
 ``` r
-isd_history
-```
+isd_history <- dplyr::mutate(isd_history,
+                                ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
+                                                ELEV_M, ELEV_M_SRTM_90m))
+# round SRTM_90m_Buffer field to whole number in cases where station reported
+# data was used and rename column
+isd_history[, 13] <- round(isd_history[, 13], 0)
 
-    ## # A tibble: 28,476 x 13
-    ##    USAF   WBAN  STN_NAME     CTRY  STATE CALL    LAT    LON ELEV_M   BEGIN
-    ##    <chr>  <chr> <chr>        <chr> <chr> <chr> <dbl>  <dbl>  <dbl>   <dbl>
-    ##  1 010010 99999 JAN MAYEN(N… NO    <NA>  ENJA   70.9  -8.67   9.00  1.93e7
-    ##  2 010014 99999 SORSTOKKEN   NO    <NA>  ENSO   59.8   5.34  48.8   1.99e7
-    ##  3 010015 99999 BRINGELAND   NO    <NA>  <NA>   61.4   5.87 327.    1.99e7
-    ##  4 010016 99999 RORVIK/RYUM  NO    <NA>  <NA>   64.8  11.2   14.0   1.99e7
-    ##  5 010017 99999 FRIGG        NO    <NA>  ENFR   60.0   2.25  48.0   1.99e7
-    ##  6 010020 99999 VERLEGENHUK… NO    <NA>  <NA>   80.0  16.2    8.00  1.99e7
-    ##  7 010030 99999 HORNSUND     NO    <NA>  <NA>   77.0  15.5   12.0   1.99e7
-    ##  8 010040 99999 NY-ALESUND … NO    <NA>  ENAS   78.9  11.9    8.00  1.97e7
-    ##  9 010050 99999 ISFJORD RAD… SV    <NA>  <NA>   78.1  13.6    9.00  1.93e7
-    ## 10 010060 99999 EDGEOYA      NO    <NA>  <NA>   78.2  22.8   14.0   1.97e7
-    ## # ... with 28,466 more rows, and 3 more variables: END <dbl>, STNID <chr>,
-    ## #   ELEV_M_SRTM_90m <dbl>
+# retain only distinct rows in case of duplicate data
+
+isd_history <- isd_history %>%
+  dplyr::distinct(isd_history)
+```
 
 # Figures
 
@@ -383,20 +360,20 @@ and found not to be different while also not showing any discernible
 geographic patterns. However, The buffered elevation data are higher
 than the non-buffered data. To help avoid within cell and between cell
 variation the buffered values are the values that are included in the
-final data for distribution with the GSODR package following the
-approach of Hijmans *et al.* (2005).
+final data for distribution with the package following the approach of
+Hijmans *et al.* (2005).
 
-The final dataframe for distribution with *GSODR* includes the new
+The final dataframe for distribution with the package includes the new
 elevation values along with the cleaned “isd-history.csv” data.
 
 ``` r
-# write rda file to disk for use with GSODR package
+# write rda file to disk for use with package
 save(isd_history, file = "../inst/stations.rda",
      compress = "bzip2")
 ```
 
-The `isd_history.rda` file is bundled in the GSODR package and includes
-the new elevation data as the field; ELEV\_M\_SRTM\_90m.
+The `isd_history.rda` file is bundled in the package and includes the
+new elevation data as the field; ELEV\_M\_SRTM\_90m.
 
 # Notes
 
@@ -435,12 +412,10 @@ website](http://www7.ncdc.noaa.gov/CDO/cdoselect.cmd?datasetabbv=GSOD&countryabb
     ##  bindrcpp           * 0.2.2   2018-03-29 cran (@0.2.2) 
     ##  class                7.3-14  2015-08-30 CRAN (R 3.4.4)
     ##  classInt             0.1-24  2017-04-16 CRAN (R 3.4.4)
-    ##  cli                  1.0.0   2017-11-05 CRAN (R 3.4.4)
     ##  clisymbols           1.2.0   2017-05-21 CRAN (R 3.4.4)
     ##  codetools            0.2-15  2016-10-05 CRAN (R 3.4.4)
     ##  colorspace           1.3-2   2016-12-14 CRAN (R 3.4.4)
     ##  countrycode        * 1.00.0  2018-02-11 CRAN (R 3.4.4)
-    ##  crayon               1.3.4   2017-09-16 CRAN (R 3.4.4)
     ##  curl                 3.2     2018-03-28 cran (@3.2)   
     ##  DBI                  0.8     2018-03-02 CRAN (R 3.4.4)
     ##  digest               0.6.15  2018-01-28 CRAN (R 3.4.4)
@@ -484,7 +459,6 @@ website](http://www7.ncdc.noaa.gov/CDO/cdoselect.cmd?datasetabbv=GSOD&countryabb
     ##  tibble               1.4.2   2018-01-22 CRAN (R 3.4.4)
     ##  udunits2             0.13    2016-11-17 CRAN (R 3.4.4)
     ##  units                0.5-1   2018-01-08 CRAN (R 3.4.4)
-    ##  utf8                 1.1.3   2018-01-03 CRAN (R 3.4.4)
     ##  withr                2.1.2   2018-03-15 CRAN (R 3.4.4)
     ##  yaml                 2.1.18  2018-03-08 CRAN (R 3.4.4)
 
