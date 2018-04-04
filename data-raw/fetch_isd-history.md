@@ -292,8 +292,8 @@ return(sub_stations)
 parallel::stopCluster(cl)
 ```
 
-Create the `corrected_elev` object and tidy up by converting any factors
-to character prior to performing a left-join with the `stations` object.
+Create the `stn_df` object by performing left-join of the
+`corrected_elev` with the `stations` object.
 
 ``` r
 # convert any factors in stations object to character for left_join
@@ -301,7 +301,7 @@ stations <- dplyr::mutate_if(as.data.frame(stations), is.factor, as.character)
 
 # Perform left join to join corrected elevation with original station data,
 # this will include stations below/above -60/60
-stations <- 
+stn_df <- 
   dplyr::left_join(stations, corrected_elev) %>% 
   tibble::as_tibble()
 ```
@@ -309,7 +309,7 @@ stations <-
     ## Joining, by = c("USAF", "WBAN", "STN_NAME", "CTRY", "STATE", "CALL", "LAT", "LON", "ELEV_M", "BEGIN", "END", "STNID")
 
 ``` r
-str(stations)
+str(stn_df)
 ```
 
     ## Classes 'tbl_df', 'tbl' and 'data.frame':    28476 obs. of  13 variables:
@@ -331,18 +331,18 @@ Some stations occur in areas where DEM has no data, in this case, use
 original station elevation for these stations.
 
 ``` r
-stations <- dplyr::mutate(stations,
-                                ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
-                                                ELEV_M, ELEV_M_SRTM_90m))
+stn_df <- dplyr::mutate(stn_df,
+                        ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
+                                                 ELEV_M, ELEV_M_SRTM_90m))
 # round SRTM_90m_Buffer field to whole number in cases where station reported
 # data was used and rename column
-stations[, 13] <- round(stations[, 13], 0)
+stn_df[, 13] <- round(stn_df[, 13], 0)
 ```
 
 # Figures
 
 ``` r
-ggplot2::ggplot(data = stations, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
+ggplot2::ggplot(data = stn_df, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
   ggplot2::geom_point(alpha = 0.4, size = 0.5) +
   ggplot2::geom_abline(slope = 1, colour = "white")
 ```
@@ -363,12 +363,12 @@ elevation values along with the cleaned “isd-history.csv” data.
 
 ``` r
 # write rda file to disk for use with package
-save(stations, file = "../inst/stations.rda",
+save(stn_df, file = "../inst/stations.rda",
      compress = "bzip2")
 ```
 
-The `isd_history.rda` file is bundled in the package and includes the
-new elevation data as the field; ELEV\_M\_SRTM\_90m.
+The `stations.rda` file is bundled in the package and includes the new
+elevation data as the field; ELEV\_M\_SRTM\_90m.
 
 # Notes
 
