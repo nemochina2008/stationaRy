@@ -152,7 +152,7 @@ get_isd_station_data <- function(station_id,
         usaf == as.numeric(unlist(strsplit(station_id,
                                            "-"))[1]),
         wban == as.numeric(unlist(strsplit(station_id,
-                                           "-"))[2]))[,11])
+                                           "-"))[2]))[, 11])
   
   # if 'gmt_offset' is positive, then also download year of data previous to
   # beginning of series

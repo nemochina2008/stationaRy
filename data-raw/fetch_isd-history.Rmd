@@ -98,12 +98,17 @@ NE <- rnaturalearth::ne_countries(scale = 10)
 stations <- readr::read_csv(
   "ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv",
   col_types = "ccccccddddd",
-  col_names = c("USAF", "WBAN", "STN_NAME", "CTRY", "STATE", "CALL",
-                "LAT", "LON", "ELEV_M", "BEGIN", "END"), skip = 1)
+  col_names = c("usaf", "wban", "name", "country", "state", "CALL",
+                "lat", "lon", "elev", "begin", "end"), skip = 1)
 
+# drop the "CALL" field
+stations <- stations[, -6]
+
+# set missing values to NA
 stations[stations == -999.9] <- NA
 stations[stations == -999] <- NA
 
+# read countries table
 countries <- readr::read_table(
   "ftp://ftp.ncdc.noaa.gov/pub/data/noaa/country-list.txt",
   col_types = "ccc",
@@ -115,18 +120,18 @@ countries <- readr::read_table(
 
 ```{r clean and reformat station data, echo=TRUE, cache=FALSE}
 # clean data
-stations <- stations[!is.na(stations$LAT) & !is.na(stations$LON), ]
-stations <- stations[stations$LAT != 0 & stations$LON != 0, ]
-stations <- stations[stations$LAT > -90 & stations$LAT < 90, ]
-stations <- stations[stations$LON > -180 & stations$LON < 180, ]
-stations$STNID <- as.character(paste(stations$USAF, stations$WBAN, sep = "-"))
+stations <- stations[!is.na(stations$lat) & !is.na(stations$lon), ]
+stations <- stations[stations$lat != 0 & stations$lon != 0, ]
+stations <- stations[stations$lat > -90 & stations$lat < 90, ]
+stations <- stations[stations$lon > -180 & stations$lon < 180, ]
+stations$station_id <- as.character(paste(stations$usaf, stations$wban, sep = "-"))
 
 # join countries with countrycode data
 countries <- dplyr::left_join(countries, countrycode::codelist,
                               by = c(FIPS = "fips"))
 
 # create xy object to check for geographic location agreement with reported
-xy <- dplyr::left_join(stations, countries, by = c("CTRY" = "FIPS"))
+xy <- dplyr::left_join(stations, countries, by = c("country" = "FIPS"))
 ```
 
 ## Check data for inconsistencies
@@ -170,7 +175,7 @@ facilitate this next step.
 
 # create spatial object to check for location
 xy <- as.data.frame(xy)
-sp::coordinates(xy) <- ~ LON + LAT
+sp::coordinates(xy) <- ~ lon + lat
 sp::proj4string(xy) <- sp::CRS(crs)
 
 # check for location in country
@@ -190,7 +195,7 @@ the 90m elevation data and supplement the elevation data from the NCEI.
 ```{r check and supplement station elevation, echo=TRUE, cache=FALSE}
 # create a spatial object for extracting elevation values using spatial points
 stations <- as.data.frame(stations)
-sp::coordinates(stations) <- ~ LON + LAT
+sp::coordinates(stations) <- ~ lon + lat
 sp::proj4string(stations) <- sp::CRS(crs)
 
 # set up cluster for parallel processing
@@ -209,7 +214,7 @@ sub_stations <- raster::crop(stations, dem)
 if (!is.null(sub_stations)) {
 # use a 200m buffer to extract elevation from the DEM
 
-  sub_stations$ELEV_M_SRTM_90m <- 
+  sub_stations$srtm_90m <- 
   raster::extract(dem, sub_stations,
                   buffer = 200,
                   fun = mean)
@@ -251,17 +256,17 @@ station elevation for these stations.
 
 ```{r fill-NA}
 stn_df <- dplyr::mutate(stn_df,
-                        ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
-                                                 ELEV_M, ELEV_M_SRTM_90m))
+                        srtm_90m = ifelse(is.na(srtm_90m),
+                                          elev, srtm_90m))
 # round SRTM_90m_Buffer field to whole number in cases where station reported
 # data was used and rename column
-stn_df[, 13] <- round(stn_df[, 13], 0)
+stn_df[, 12] <- round(stn_df[, 12], 0)
 ```
 
 # Figures
 
 ```{r Buffered SRTM 90m vs Reported Elevation, echo=TRUE, fig.cap="GSOD Reported Elevation versus CGIAR-CSI SRTM Buffered Elevation", warning=FALSE}
-ggplot2::ggplot(data = stn_df, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
+ggplot2::ggplot(data = stn_df, aes(x = elev, y = srtm_90m)) +
   ggplot2::geom_point(alpha = 0.4, size = 0.5) +
   ggplot2::geom_abline(slope = 1, colour = "white")
 ```

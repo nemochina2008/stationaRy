@@ -1,7 +1,7 @@
 Fetch, clean and correct altitude isd\_history.csv data
 ================
 Adam H. Sparks
-2018-04-04
+2018-04-05
 
 # Introduction
 
@@ -155,12 +155,17 @@ NE <- rnaturalearth::ne_countries(scale = 10)
 stations <- readr::read_csv(
   "ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv",
   col_types = "ccccccddddd",
-  col_names = c("USAF", "WBAN", "STN_NAME", "CTRY", "STATE", "CALL",
-                "LAT", "LON", "ELEV_M", "BEGIN", "END"), skip = 1)
+  col_names = c("usaf", "wban", "name", "country", "state", "CALL",
+                "lat", "lon", "elev", "begin", "end"), skip = 1)
 
+# drop the "CALL" field
+stations <- stations[, -6]
+
+# set missing values to NA
 stations[stations == -999.9] <- NA
 stations[stations == -999] <- NA
 
+# read countries table
 countries <- readr::read_table(
   "ftp://ftp.ncdc.noaa.gov/pub/data/noaa/country-list.txt",
   col_types = "ccc",
@@ -172,18 +177,18 @@ countries <- readr::read_table(
 
 ``` r
 # clean data
-stations <- stations[!is.na(stations$LAT) & !is.na(stations$LON), ]
-stations <- stations[stations$LAT != 0 & stations$LON != 0, ]
-stations <- stations[stations$LAT > -90 & stations$LAT < 90, ]
-stations <- stations[stations$LON > -180 & stations$LON < 180, ]
-stations$STNID <- as.character(paste(stations$USAF, stations$WBAN, sep = "-"))
+stations <- stations[!is.na(stations$lat) & !is.na(stations$lon), ]
+stations <- stations[stations$lat != 0 & stations$lon != 0, ]
+stations <- stations[stations$lat > -90 & stations$lat < 90, ]
+stations <- stations[stations$lon > -180 & stations$lon < 180, ]
+stations$station_id <- as.character(paste(stations$usaf, stations$wban, sep = "-"))
 
 # join countries with countrycode data
 countries <- dplyr::left_join(countries, countrycode::codelist,
                               by = c(FIPS = "fips"))
 
 # create xy object to check for geographic location agreement with reported
-xy <- dplyr::left_join(stations, countries, by = c("CTRY" = "FIPS"))
+xy <- dplyr::left_join(stations, countries, by = c("country" = "FIPS"))
 ```
 
 ## Check data for inconsistencies
@@ -228,7 +233,7 @@ step.
 
 # create spatial object to check for location
 xy <- as.data.frame(xy)
-sp::coordinates(xy) <- ~ LON + LAT
+sp::coordinates(xy) <- ~ lon + lat
 sp::proj4string(xy) <- sp::CRS(crs)
 
 # check for location in country
@@ -252,7 +257,7 @@ NCEI.
 ``` r
 # create a spatial object for extracting elevation values using spatial points
 stations <- as.data.frame(stations)
-sp::coordinates(stations) <- ~ LON + LAT
+sp::coordinates(stations) <- ~ lon + lat
 sp::proj4string(stations) <- sp::CRS(crs)
 
 # set up cluster for parallel processing
@@ -271,7 +276,7 @@ sub_stations <- raster::crop(stations, dem)
 if (!is.null(sub_stations)) {
 # use a 200m buffer to extract elevation from the DEM
 
-  sub_stations$ELEV_M_SRTM_90m <- 
+  sub_stations$srtm_90m <- 
   raster::extract(dem, sub_stations,
                   buffer = 200,
                   fun = mean)
@@ -306,43 +311,42 @@ stn_df <-
   tibble::as_tibble()
 ```
 
-    ## Joining, by = c("USAF", "WBAN", "STN_NAME", "CTRY", "STATE", "CALL", "LAT", "LON", "ELEV_M", "BEGIN", "END", "STNID")
+    ## Joining, by = c("usaf", "wban", "name", "country", "state", "lat", "lon", "elev", "begin", "end", "station_id")
 
 ``` r
 str(stn_df)
 ```
 
-    ## Classes 'tbl_df', 'tbl' and 'data.frame':    28476 obs. of  13 variables:
-    ##  $ USAF           : chr  "010010" "010014" "010015" "010016" ...
-    ##  $ WBAN           : chr  "99999" "99999" "99999" "99999" ...
-    ##  $ STN_NAME       : chr  "JAN MAYEN(NOR-NAVY)" "SORSTOKKEN" "BRINGELAND" "RORVIK/RYUM" ...
-    ##  $ CTRY           : chr  "NO" "NO" "NO" "NO" ...
-    ##  $ STATE          : chr  NA NA NA NA ...
-    ##  $ CALL           : chr  "ENJA" "ENSO" NA NA ...
-    ##  $ LAT            : num  70.9 59.8 61.4 64.8 60 ...
-    ##  $ LON            : num  -8.67 5.34 5.87 11.23 2.25 ...
-    ##  $ ELEV_M         : num  9 48.8 327 14 48 8 12 8 9 14 ...
-    ##  $ BEGIN          : num  19310101 19861120 19870117 19870116 19880320 ...
-    ##  $ END            : num  20180401 20180401 20111020 19910806 20050228 ...
-    ##  $ STNID          : chr  "010010-99999" "010014-99999" "010015-99999" "010016-99999" ...
-    ##  $ ELEV_M_SRTM_90m: num  NA 47.7 NA NA NA ...
+    ## Classes 'tbl_df', 'tbl' and 'data.frame':    28476 obs. of  12 variables:
+    ##  $ usaf      : chr  "010010" "010014" "010015" "010016" ...
+    ##  $ wban      : chr  "99999" "99999" "99999" "99999" ...
+    ##  $ name      : chr  "JAN MAYEN(NOR-NAVY)" "SORSTOKKEN" "BRINGELAND" "RORVIK/RYUM" ...
+    ##  $ country   : chr  "NO" "NO" "NO" "NO" ...
+    ##  $ state     : chr  NA NA NA NA ...
+    ##  $ lat       : num  70.9 59.8 61.4 64.8 60 ...
+    ##  $ lon       : num  -8.67 5.34 5.87 11.23 2.25 ...
+    ##  $ elev      : num  9 48.8 327 14 48 8 12 8 9 14 ...
+    ##  $ begin     : num  19310101 19861120 19870117 19870116 19880320 ...
+    ##  $ end       : num  20180402 20180402 20111020 19910806 20050228 ...
+    ##  $ station_id: chr  "010010-99999" "010014-99999" "010015-99999" "010016-99999" ...
+    ##  $ srtm_90m  : num  NA 47.7 NA NA NA ...
 
 Some stations occur in areas where DEM has no data, in this case, use
 original station elevation for these stations.
 
 ``` r
 stn_df <- dplyr::mutate(stn_df,
-                        ELEV_M_SRTM_90m = ifelse(is.na(ELEV_M_SRTM_90m),
-                                                 ELEV_M, ELEV_M_SRTM_90m))
+                        srtm_90m = ifelse(is.na(srtm_90m),
+                                          elev, srtm_90m))
 # round SRTM_90m_Buffer field to whole number in cases where station reported
 # data was used and rename column
-stn_df[, 13] <- round(stn_df[, 13], 0)
+stn_df[, 12] <- round(stn_df[, 12], 0)
 ```
 
 # Figures
 
 ``` r
-ggplot2::ggplot(data = stn_df, aes(x = ELEV_M, y = ELEV_M_SRTM_90m)) +
+ggplot2::ggplot(data = stn_df, aes(x = elev, y = srtm_90m)) +
   ggplot2::geom_point(alpha = 0.4, size = 0.5) +
   ggplot2::geom_abline(slope = 1, colour = "white")
 ```
@@ -397,7 +401,7 @@ website](http://www7.ncdc.noaa.gov/CDO/cdoselect.cmd?datasetabbv=GSOD&countryabb
     ##  language (EN)                        
     ##  collate  en_AU.UTF-8                 
     ##  tz       Australia/Brisbane          
-    ##  date     2018-04-04                  
+    ##  date     2018-04-05                  
     ## 
     ## ─ Packages ──────────────────────────────────────────────────────────────
     ##  package            * version date       source        
